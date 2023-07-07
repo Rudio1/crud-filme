@@ -1,8 +1,8 @@
 ﻿using FilmesApi.Data;
 using FilmesApi.Data.Dto;
 using FilmesApi.Models;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
 
 namespace FilmesApi.Controllers
 {
@@ -17,7 +17,12 @@ namespace FilmesApi.Controllers
             this.context = context;
         }
 
+
+        /// <param name="filmeDto">Objeto com os campos necessários para criação de um filme</param>
+        /// <returns>IActionResult</returns>
+        /// <response code="201">Caso inserção seja feita com sucesso</response>
         [HttpPost]
+        [ProducesResponseType(StatusCodes.Status201Created)]
         public IActionResult AdicionaFilme([FromBody] CreateFilmeDto filmeDto)
         {
             Filme filme = new Filme
@@ -44,7 +49,7 @@ namespace FilmesApi.Controllers
 
         [HttpGet("{id}")]
         public IActionResult getFilmesById(int id)
-        {   
+        {
             var filme = this.context.Filmes.FirstOrDefault(filme => filme.Id == id);
             if (filme == null) return NotFound(new
             {
@@ -60,7 +65,8 @@ namespace FilmesApi.Controllers
         public IActionResult UpdateFilme(int id, [FromBody] UpdateFilmeDto filmedto)
         {
             var filme = this.context.Filmes.FirstOrDefault(filme => filme.Id == id);
-            if (filme == null) return NotFound(new { 
+            if (filme == null) return NotFound(new
+            {
                 Message = "Error",
                 Sucess = false
             });//404
@@ -98,5 +104,55 @@ namespace FilmesApi.Controllers
             });//200
 
         }
+
+        [HttpGet]
+        [Route("duracao/desc")]
+        public IActionResult orderDuracaoDesc([FromQuery] int skip = 0, [FromQuery] int take = 100)
+        {
+            var filmesOrdenados = this.context.Filmes.OrderByDescending(filme => filme.Duracao);
+            return Ok(filmesOrdenados.Skip(skip).Take(take));
+        }
+
+
+        [HttpGet]
+        [Route("duracao/asc")]
+        public IActionResult orderDuracaoAsc([FromQuery] int skip = 0, [FromQuery] int take = 100)
+        {
+            var filmesOrdenados = this.context.Filmes.OrderBy(filme => filme.Duracao);
+            return Ok(filmesOrdenados.Skip(skip).Take(take));
+        }
+
+        [HttpPatch("{id}")]
+        public IActionResult UpdateFilmeEspecifico(int id, JsonPatchDocument<UpdateFilmeDto> patch)
+        {
+            var filme = this.context.Filmes.FirstOrDefault(filme => filme.Id == id);
+            if (filme == null) return NotFound(new
+            {
+                Message = "Error",
+                Sucess = false
+            });//404
+
+            var attFilme = new UpdateFilmeDto
+            {
+                Titulo = filme.Titulo,
+                Genero = filme.Genero,
+                Duracao = filme.Duracao
+            };
+
+            patch.ApplyTo(attFilme, ModelState);
+            if (!TryValidateModel(attFilme))
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            filme.Titulo = attFilme.Titulo;
+            filme.Genero = attFilme.Genero;
+            filme.Duracao = attFilme.Duracao;
+            this.context.SaveChanges();
+
+            return Ok();//200
+
+        }
+
     }
-}
+   }
